@@ -13,6 +13,8 @@ os:
   - linux
 #  - osx
 
+install: true
+
 before_install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo add-apt-repository ppa:ethereum/ethereum -y; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get update -q; fi
