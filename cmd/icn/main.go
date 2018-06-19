@@ -26,9 +26,9 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"strings"
 	"sync"
 	"time"
-	"strings"
 
 	"github.com/WeTrustPlatform/poa-interchain-node"
 	"github.com/WeTrustPlatform/poa-interchain-node/bind/mainchain"
@@ -56,6 +56,53 @@ func handleError(err error) {
 		fmt.Println(err.Error())
 		os.Exit(0)
 	}
+}
+
+// For each Deposit on the main chain, call SubmitTransactionSC on the side chain
+func processMCDeposits(ctx context.Context, auth *bind.TransactOpts,
+	mc *mainchain.MainChain, sc *sidechain.SideChain, wg *sync.WaitGroup) {
+	i, _ := mc.FilterDeposit(&bind.FilterOpts{
+		Start:   0,
+		End:     nil,
+		Context: ctx,
+	}, []common.Address{}, []common.Address{})
+	for i.Next() {
+		tx, err := sc.SubmitTransactionSC(auth, i.Event.Raw.TxHash, i.Event.To, i.Event.Value, []byte{})
+		log.Println("[mc2sc]", i.Event.Raw.BlockNumber, tx, err)
+	}
+	wg.Done()
+}
+
+// For each Deposit on the side chain, call SubmitSignatureMC on the side chain
+func processSCDeposits(ctx context.Context, auth *bind.TransactOpts,
+	mc *mainchain.MainChain, sc *sidechain.SideChain,
+	addr common.Address, key *keystore.Key, wg *sync.WaitGroup) {
+	i, _ := sc.FilterDeposit(&bind.FilterOpts{
+		Start:   0,
+		End:     nil,
+		Context: ctx,
+	}, []common.Address{}, []common.Address{})
+	for i.Next() {
+		tx, err := icn.SubmitSignatureMC(ctx, addr, auth, sc, i.Event, key.PrivateKey)
+		log.Println("[sc2mc]", i.Event.Raw.BlockNumber, tx, err)
+	}
+	wg.Done()
+}
+
+// For each SignatureAdded on the side chain, call SubmitTransaction on the main chain
+func processSCSignatureAdded(ctx context.Context, auth *bind.TransactOpts,
+	mc *mainchain.MainChain, sc *sidechain.SideChain,
+	wg *sync.WaitGroup) {
+	i, _ := sc.FilterSignatureAdded(&bind.FilterOpts{Start: 0, End: nil, Context: ctx})
+	for i.Next() {
+		enough, _ := icn.HasEnoughSignaturesMC(ctx, sc, auth.From, i.Event.TxHash)
+		if enough {
+			resp, _ := sc.GetTransactionMC(&bind.CallOpts{Pending: false, From: auth.From, Context: ctx}, i.Event.TxHash)
+			tx, err := mc.SubmitTransaction(auth, i.Event.TxHash, resp.Destination, resp.Value, resp.Data, resp.V, resp.R, resp.S)
+			log.Println("[sc2mc]", i.Event.Raw.BlockNumber, tx, err)
+		}
+	}
+	wg.Done()
 }
 
 func main() {
@@ -107,45 +154,17 @@ func main() {
 
 	var wg sync.WaitGroup
 
+	// Watch the main chain
 	if opts.MainChain {
-		// Watch deposits on the main chain
 		wg.Add(1)
-		go func() {
-			mci, _ := mc.FilterDeposit(&bind.FilterOpts{Start: 0, End: nil, Context: ctx}, []common.Address{}, []common.Address{})
-			for mci.Next() {
-				tx, err := sc.SubmitTransactionSC(auth, mci.Event.Raw.TxHash, mci.Event.To, mci.Event.Value, []byte{})
-				log.Println("[mc2sc]", mci.Event.Raw.BlockNumber, tx, err)
-			}
-			wg.Done()
-		}()
+		go processMCDeposits(ctx, auth, mc, sc, &wg)
 	}
 
+	// Watch the side chain
 	if opts.SideChain {
-		// Watch deposits on the side chain
-		wg.Add(1)
-		go func() {
-			sci, _ := sc.FilterDeposit(&bind.FilterOpts{Start: 0, End: nil, Context: ctx}, []common.Address{}, []common.Address{})
-			for sci.Next() {
-				tx, err := icn.SubmitSignatureMC(ctx, sideChainWalletAddress, auth, sc, sci.Event, key.PrivateKey)
-				log.Println("[sc2mc]", sci.Event.Raw.BlockNumber, tx, err)
-			}
-			wg.Done()
-		}()
-
-		// Watch signature added on the side chain
-		wg.Add(1)
-		go func() {
-			fci, _ := sc.FilterSignatureAdded(&bind.FilterOpts{Start: 0, End: nil, Context: ctx})
-			for fci.Next() {
-				enough, _ := icn.HasEnoughSignaturesMC(ctx, sc, auth.From, fci.Event.TxHash)
-				if enough {
-					resp, _ := sc.GetTransactionMC(&bind.CallOpts{Pending: false, From: auth.From, Context: ctx}, fci.Event.TxHash)
-					tx, err := mc.SubmitTransaction(auth, fci.Event.TxHash, resp.Destination, resp.Value, resp.Data, resp.V, resp.R, resp.S)
-					log.Println("[sc2mc]", fci.Event.Raw.BlockNumber, tx, err)
-				}
-			}
-			wg.Done()
-		}()
+		wg.Add(2)
+		go processSCDeposits(ctx, auth, mc, sc, sideChainWalletAddress, key, &wg)
+		go processSCSignatureAdded(ctx, auth, mc, sc, &wg)
 	}
 
 	wg.Wait()
