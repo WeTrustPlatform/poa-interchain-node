@@ -23,6 +23,7 @@ import (
 	"context"
 	"math/big"
 	"reflect"
+	"sync"
 	"testing"
 
 	"github.com/WeTrustPlatform/poa-interchain-node/bind/mainchain"
@@ -166,13 +167,12 @@ func TestMainChainToSideChain(t *testing.T) {
 	tx, _ := mc.Deposit(tester2, tester1.From)
 	mcClient.Commit()
 
-	mci, _ := mc.FilterDeposit(&bind.FilterOpts{Start: 0, End: nil, Context: ctx}, []common.Address{}, []common.Address{})
-	for mci.Next() {
-		sc.SubmitTransactionSC(sealer1Auth, mci.Event.Raw.TxHash, mci.Event.To, mci.Event.Value, []byte{})
-		scClient.Commit()
-		sc.SubmitTransactionSC(sealer2Auth, mci.Event.Raw.TxHash, mci.Event.To, mci.Event.Value, []byte{})
-		scClient.Commit()
-	}
+	var wg sync.WaitGroup
+	wg.Add(2)
+	ProcessMCDeposits(ctx, sealer1Auth, mc, sc, &wg)
+	ProcessMCDeposits(ctx, sealer2Auth, mc, sc, &wg)
+	wg.Wait()
+	scClient.Commit()
 
 	t.Run("Transaction is confirmed after the number of required votes on the SC is reached", func(t *testing.T) {
 		confirmed, _ := sc.IsConfirmed(&bind.CallOpts{
