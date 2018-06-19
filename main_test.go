@@ -169,8 +169,8 @@ func TestMainChainToSideChain(t *testing.T) {
 
 	var wg sync.WaitGroup
 	wg.Add(2)
-	ProcessMCDeposits(ctx, sealer1Auth, mc, sc, &wg)
-	ProcessMCDeposits(ctx, sealer2Auth, mc, sc, &wg)
+	go ProcessMCDeposits(ctx, sealer1Auth, mc, sc, &wg)
+	go ProcessMCDeposits(ctx, sealer2Auth, mc, sc, &wg)
 	wg.Wait()
 	scClient.Commit()
 
@@ -260,8 +260,8 @@ func TestSideChainToMainChain(t *testing.T) {
 
 	var wg sync.WaitGroup
 	wg.Add(2)
-	ProcessSCDeposits(ctx, sealer1Auth, mc, sc, scAddr, sealer1Key, &wg)
-	ProcessSCDeposits(ctx, sealer2Auth, mc, sc, scAddr, sealer2Key, &wg)
+	go ProcessSCDeposits(ctx, sealer1Auth, mc, sc, scAddr, sealer1Key, &wg)
+	go ProcessSCDeposits(ctx, sealer2Auth, mc, sc, scAddr, sealer2Key, &wg)
 	wg.Wait()
 	scClient.Commit()
 
@@ -273,16 +273,10 @@ func TestSideChainToMainChain(t *testing.T) {
 		}
 	})
 
-	fci, _ := sc.FilterSignatureAdded(&bind.FilterOpts{Start: 0, End: nil, Context: ctx})
-	for fci.Next() {
-		enough, _ := HasEnoughSignaturesMC(ctx, sc, sealer1.From, fci.Event.TxHash)
-		if enough {
-			resp, _ := sc.GetTransactionMC(&bind.CallOpts{Pending: false, From: sealer1.From, Context: ctx}, fci.Event.TxHash)
-			scClient.Commit()
-			mc.SubmitTransaction(sealer1, fci.Event.TxHash, resp.Destination, resp.Value, resp.Data, resp.V, resp.R, resp.S)
-			mcClient.Commit()
-		}
-	}
+	wg.Add(1)
+	go ProcessSCSignatureAdded(ctx, sealer1Auth, mc, sc, &wg)
+	wg.Wait()
+	mcClient.Commit()
 
 	t.Run("Sender has been debited on the sidechain", func(t *testing.T) {
 		have, _ := scClient.BalanceAt(ctx, tester1.From, nil)
