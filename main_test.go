@@ -258,43 +258,17 @@ func TestSideChainToMainChain(t *testing.T) {
 	tx, _ := sc.Deposit(tester1, tester2.From)
 	scClient.Commit()
 
-	sci, _ := sc.FilterDeposit(&bind.FilterOpts{Start: 0, End: nil, Context: ctx}, []common.Address{}, []common.Address{})
-	for sci.Next() {
-		SubmitSignatureMC(ctx, scAddr, sealer1Auth, sc, sci.Event, sealer1Key)
-		scClient.Commit()
-		SubmitSignatureMC(ctx, scAddr, sealer2Auth, sc, sci.Event, sealer2Key)
-		scClient.Commit()
-	}
+	var wg sync.WaitGroup
+	wg.Add(2)
+	ProcessSCDeposits(ctx, sealer1Auth, mc, sc, scAddr, sealer1Key, &wg)
+	ProcessSCDeposits(ctx, sealer2Auth, mc, sc, scAddr, sealer2Key, &wg)
+	wg.Wait()
+	scClient.Commit()
 
 	t.Run("HasEnoughSignaturesMC", func(t *testing.T) {
 		have, _ := HasEnoughSignaturesMC(ctx, sc, sealer1.From, tx.Hash())
 		want := true
 		if have != want {
-			t.Errorf("have = %v, want %v", have, want)
-		}
-	})
-
-	t.Run("GetTransactionMC returns the right signatures", func(t *testing.T) {
-		have, _ := sc.GetTransactionMC(&bind.CallOpts{Pending: false, From: sealer1.From, Context: ctx}, tx.Hash())
-		v1, r1, s1, _ := Sign(MsgHash(scAddr, sci.Event.Raw.TxHash, sci.Event.To, sci.Event.Value, []byte{}, 1), sealer1Key)
-		v2, r2, s2, _ := Sign(MsgHash(scAddr, sci.Event.Raw.TxHash, sci.Event.To, sci.Event.Value, []byte{}, 1), sealer2Key)
-		want := struct {
-			Destination common.Address
-			Value       *big.Int
-			Data        []byte
-			V           []uint8
-			R           [][32]byte
-			S           [][32]byte
-		}{
-			tester2.From,
-			tx.Value(),
-			[]byte{},
-			[]uint8{v1, v2},
-			[][32]byte{r1, r2},
-			[][32]byte{s1, s2},
-		}
-
-		if !reflect.DeepEqual(have, want) {
 			t.Errorf("have = %v, want %v", have, want)
 		}
 	})

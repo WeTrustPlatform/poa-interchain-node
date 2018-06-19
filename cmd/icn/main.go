@@ -115,7 +115,7 @@ func main() {
 	// Watch the side chain
 	if opts.SideChain {
 		wg.Add(2)
-		go icn.ProcessSCDeposits(ctx, auth, mc, sc, sideChainWalletAddress, key, &wg)
+		go icn.ProcessSCDeposits(ctx, auth, mc, sc, sideChainWalletAddress, key.PrivateKey, &wg)
 		go icn.ProcessSCSignatureAdded(ctx, auth, mc, sc, &wg)
 	}
 

@@ -29,7 +29,6 @@ import (
 	"github.com/WeTrustPlatform/poa-interchain-node/bind/mainchain"
 	"github.com/WeTrustPlatform/poa-interchain-node/bind/sidechain"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -149,14 +148,14 @@ func ProcessMCDeposits(ctx context.Context, auth *bind.TransactOpts,
 // ProcessSCDeposits watches the side chain and for each Deposit calls SubmitSignatureMC on the side chain
 func ProcessSCDeposits(ctx context.Context, auth *bind.TransactOpts,
 	mc *mainchain.MainChain, sc *sidechain.SideChain,
-	addr common.Address, key *keystore.Key, wg *sync.WaitGroup) {
+	addr common.Address, key *ecdsa.PrivateKey, wg *sync.WaitGroup) {
 	i, _ := sc.FilterDeposit(&bind.FilterOpts{
 		Start:   0,
 		End:     nil,
 		Context: ctx,
 	}, []common.Address{}, []common.Address{})
 	for i.Next() {
-		tx, err := SubmitSignatureMC(ctx, addr, auth, sc, i.Event, key.PrivateKey)
+		tx, err := SubmitSignatureMC(ctx, addr, auth, sc, i.Event, key)
 		log.Println("[sc2mc]", i.Event.Raw.BlockNumber, tx, err)
 	}
 	wg.Done()
