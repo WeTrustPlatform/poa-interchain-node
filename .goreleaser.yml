@@ -1,0 +1,26 @@
+project_name: poa-icn
+before:
+  hooks:
+  - go generate ./...
+builds:
+  - main: cmd/poa-icn/main.go
+    binary: poa-icn
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - 386
+    env:
+      - CGO_ENABLED=1
+archive:
+  format: tar.gz
+  replacements:
+    amd64: 64bit
+    386: 32bit
+    darwin: mac
+  files:
+    - LICENSE
+nfpm:
+  formats:
+  - deb
