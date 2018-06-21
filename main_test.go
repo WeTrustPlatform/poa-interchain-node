@@ -22,6 +22,7 @@ package icn
 import (
 	"context"
 	"math/big"
+	"os"
 	"reflect"
 	"sync"
 	"testing"
@@ -169,8 +170,8 @@ func TestMainChainToSideChain(t *testing.T) {
 
 	var wg sync.WaitGroup
 	wg.Add(2)
-	go ProcessMCDeposits(ctx, sealer1Auth, mc, sc, &wg)
-	go ProcessMCDeposits(ctx, sealer2Auth, mc, sc, &wg)
+	go ProcessMCDeposits(ctx, sealer1Auth, mc, sc, os.TempDir(), 0, &wg)
+	go ProcessMCDeposits(ctx, sealer2Auth, mc, sc, os.TempDir(), 0, &wg)
 	wg.Wait()
 	scClient.Commit()
 
@@ -260,8 +261,8 @@ func TestSideChainToMainChain(t *testing.T) {
 
 	var wg sync.WaitGroup
 	wg.Add(2)
-	go ProcessSCDeposits(ctx, sealer1Auth, mc, sc, scAddr, sealer1Key, &wg)
-	go ProcessSCDeposits(ctx, sealer2Auth, mc, sc, scAddr, sealer2Key, &wg)
+	go ProcessSCDeposits(ctx, sealer1Auth, mc, sc, scAddr, sealer1Key, os.TempDir(), 0, &wg)
+	go ProcessSCDeposits(ctx, sealer2Auth, mc, sc, scAddr, sealer2Key, os.TempDir(), 0, &wg)
 	wg.Wait()
 	scClient.Commit()
 
@@ -274,7 +275,7 @@ func TestSideChainToMainChain(t *testing.T) {
 	})
 
 	wg.Add(1)
-	go ProcessSCSignatureAdded(ctx, sealer1Auth, mc, sc, &wg)
+	go ProcessSCSignatureAdded(ctx, sealer1Auth, mc, sc, os.TempDir(), 0, &wg)
 	wg.Wait()
 	mcClient.Commit()
 

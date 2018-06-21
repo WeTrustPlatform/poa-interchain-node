@@ -48,6 +48,7 @@ var opts struct {
 	SideChainEndpoint string `long:"sidechainendpoint" required:"true" description:"URL or path of the side chain endpoint"`
 	MainChainWallet   string `long:"mainchainwallet" required:"true" description:"Ethereum address of the multisig wallet on the main chain"`
 	SideChainWallet   string `long:"sidechainwallet" required:"true" description:"Ethereum address of the multisig wallet on the side chain"`
+	DBPath            string `short:"d" long:"dbpath" required:"true" description:"Where to save and get last proccessed blocks"`
 }
 
 func handleError(err error) {
@@ -109,14 +110,17 @@ func main() {
 	// Watch the main chain
 	if opts.MainChain {
 		wg.Add(1)
-		go icn.ProcessMCDeposits(ctx, auth, mc, sc, &wg)
+		start := icn.GetLastProcessedBlock(opts.DBPath, "MCDeposit")
+		go icn.ProcessMCDeposits(ctx, auth, mc, sc, opts.DBPath, start, &wg)
 	}
 
 	// Watch the side chain
 	if opts.SideChain {
 		wg.Add(2)
-		go icn.ProcessSCDeposits(ctx, auth, mc, sc, sideChainWalletAddress, key.PrivateKey, &wg)
-		go icn.ProcessSCSignatureAdded(ctx, auth, mc, sc, &wg)
+		dstart := icn.GetLastProcessedBlock(opts.DBPath, "SCDeposit")
+		sstart := icn.GetLastProcessedBlock(opts.DBPath, "SCSignatureAdded")
+		go icn.ProcessSCDeposits(ctx, auth, mc, sc, sideChainWalletAddress, key.PrivateKey, opts.DBPath, dstart, &wg)
+		go icn.ProcessSCSignatureAdded(ctx, auth, mc, sc, opts.DBPath, sstart, &wg)
 	}
 
 	wg.Wait()
