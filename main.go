@@ -136,10 +136,10 @@ func HasEnoughSignaturesMC(ctx context.Context, sc *sidechain.SideChain, sealerA
 // ProcessMCDeposits watches the main chain and for each Deposit calls SubmitTransactionSC on the side chain
 func ProcessMCDeposits(ctx context.Context, auth *bind.TransactOpts,
 	mc *mainchain.MainChain, sc *sidechain.SideChain,
-	dbPath string, start uint64, wg *sync.WaitGroup) {
+	dbPath string, start uint64, end *uint64, wg *sync.WaitGroup) {
 	i, _ := mc.FilterDeposit(&bind.FilterOpts{
 		Start:   start,
-		End:     nil,
+		End:     end,
 		Context: ctx,
 	}, []common.Address{}, []common.Address{})
 	for i.Next() {
@@ -154,10 +154,10 @@ func ProcessMCDeposits(ctx context.Context, auth *bind.TransactOpts,
 func ProcessSCDeposits(ctx context.Context, auth *bind.TransactOpts,
 	mc *mainchain.MainChain, sc *sidechain.SideChain,
 	addr common.Address, key *ecdsa.PrivateKey,
-	dbPath string, start uint64, wg *sync.WaitGroup) {
+	dbPath string, start uint64, end *uint64, wg *sync.WaitGroup) {
 	i, _ := sc.FilterDeposit(&bind.FilterOpts{
 		Start:   start,
-		End:     nil,
+		End:     end,
 		Context: ctx,
 	}, []common.Address{}, []common.Address{})
 	for i.Next() {
@@ -171,10 +171,10 @@ func ProcessSCDeposits(ctx context.Context, auth *bind.TransactOpts,
 // ProcessSCSignatureAdded watches the side chain and for each SignatureAdded calls SubmitTransaction on the main chain
 func ProcessSCSignatureAdded(ctx context.Context, auth *bind.TransactOpts,
 	mc *mainchain.MainChain, sc *sidechain.SideChain,
-	dbPath string, start uint64, wg *sync.WaitGroup) {
+	dbPath string, start uint64, end *uint64, wg *sync.WaitGroup) {
 	i, _ := sc.FilterSignatureAdded(&bind.FilterOpts{
 		Start:   start,
-		End:     nil,
+		End:     end,
 		Context: ctx,
 	})
 	for i.Next() {
@@ -222,4 +222,16 @@ func GetLastProcessedBlock(dbPath string, eventType string) uint64 {
 	blockNumber, err := strconv.ParseUint(string(c[:]), 10, 64)
 	handleFatal(err)
 	return blockNumber
+}
+
+// EndBlock calculates the last block to process
+func EndBlock(start uint64, nblocks uint64) *uint64 {
+	var end *uint64
+	if nblocks > 0 {
+		e := start + nblocks
+		end = &e
+	} else {
+		end = nil
+	}
+	return end
 }

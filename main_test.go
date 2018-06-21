@@ -128,6 +128,37 @@ func TestSign(t *testing.T) {
 	}
 }
 
+func TestEndBlock(t *testing.T) {
+	var sum uint64 = 130
+	type args struct {
+		start   uint64
+		nblocks uint64
+	}
+	tests := []struct {
+		name string
+		args args
+		want *uint64
+	}{
+		{
+			name: "Returns nil if nblock is 0",
+			args: args{start: 0, nblocks: 0},
+			want: nil,
+		},
+		{
+			name: "Returns a pointer to the sum if nblocks is positive",
+			args: args{start: 30, nblocks: 100},
+			want: &sum,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := EndBlock(tt.args.start, tt.args.nblocks); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("EndBlock() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestMainChainToSideChain(t *testing.T) {
 	ctx := context.Background()
 
@@ -170,8 +201,8 @@ func TestMainChainToSideChain(t *testing.T) {
 
 	var wg sync.WaitGroup
 	wg.Add(2)
-	go ProcessMCDeposits(ctx, sealer1Auth, mc, sc, os.TempDir(), 0, &wg)
-	go ProcessMCDeposits(ctx, sealer2Auth, mc, sc, os.TempDir(), 0, &wg)
+	go ProcessMCDeposits(ctx, sealer1Auth, mc, sc, os.TempDir(), 0, nil, &wg)
+	go ProcessMCDeposits(ctx, sealer2Auth, mc, sc, os.TempDir(), 0, nil, &wg)
 	wg.Wait()
 	scClient.Commit()
 
@@ -261,8 +292,8 @@ func TestSideChainToMainChain(t *testing.T) {
 
 	var wg sync.WaitGroup
 	wg.Add(2)
-	go ProcessSCDeposits(ctx, sealer1Auth, mc, sc, scAddr, sealer1Key, os.TempDir(), 0, &wg)
-	go ProcessSCDeposits(ctx, sealer2Auth, mc, sc, scAddr, sealer2Key, os.TempDir(), 0, &wg)
+	go ProcessSCDeposits(ctx, sealer1Auth, mc, sc, scAddr, sealer1Key, os.TempDir(), 0, nil, &wg)
+	go ProcessSCDeposits(ctx, sealer2Auth, mc, sc, scAddr, sealer2Key, os.TempDir(), 0, nil, &wg)
 	wg.Wait()
 	scClient.Commit()
 
@@ -275,7 +306,7 @@ func TestSideChainToMainChain(t *testing.T) {
 	})
 
 	wg.Add(1)
-	go ProcessSCSignatureAdded(ctx, sealer1Auth, mc, sc, os.TempDir(), 0, &wg)
+	go ProcessSCSignatureAdded(ctx, sealer1Auth, mc, sc, os.TempDir(), 0, nil, &wg)
 	wg.Wait()
 	mcClient.Commit()
 
