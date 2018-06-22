@@ -117,7 +117,7 @@ For each sealer, run the interchain node:
 
     go run ../cmd/icn/main.go -k sidechain/keystore/<sealer1_key_json> --mainchainendpoint=mainchain/geth.ipc --sidechainendpoint=sidechain/geth.ipc -p dummy --mainchainwallet=`cat mainchain/wallet` --sidechainwallet=`cat sidechain/wallet` -d=sealer1db
 
-    go run ../cmd/icn/main.go -k sidechain2/keystore/<sealer2_key_json> --mainchainendpoint=mainchain/geth.ipc --sidechainendpoint=sidechain/geth.ipc -p dummy --mainchainwallet=`cat mainchain/wallet` --sidechainwallet=`cat sidechain/wallet` -d=sealer2db
+    go run ../cmd/icn/main.go -k sidechain2/keystore/<sealer2_key_json> --mainchainendpoint=mainchain/geth.ipc --sidechainendpoint=sidechain2/geth.ipc -p dummy --mainchainwallet=`cat mainchain/wallet` --sidechainwallet=`cat sidechain/wallet` -d=sealer2db
 
 ```
 Usage:
